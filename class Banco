@@ -1,0 +1,130 @@
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+public class BancosinSinc {
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+
+		Banco b = new Banco();
+
+		for (int i = 0; i < 100; i++) {
+
+			StartTransfer S = new StartTransfer(b, i, 2000);
+
+			Thread T = new Thread(S);
+
+			T.start();
+
+		}
+
+	}
+
+}
+
+class Banco {
+
+	private final double[] cuentas;
+
+	private Lock closeBank = new ReentrantLock();
+
+	private Condition saldoSufi;
+
+	public Banco() {
+
+		cuentas = new double[100];
+
+		for (int i = 0; i < cuentas.length; i++) {
+
+			cuentas[i] = 2000;
+		}
+
+		saldoSufi = closeBank.newCondition(); // una nueva condicion para el bloqueo
+
+	}
+
+	public void tranferencia(int cuentaOrig, int cuentaDest, double cantidad) throws InterruptedException {
+
+		closeBank.lock();
+
+		try {
+
+			// if o while
+			while (cuentas[cuentaOrig] < cantidad) { // Evalua el Saldo
+
+				saldoSufi.await();
+
+			}
+
+			System.out.println(Thread.currentThread());
+
+			cuentas[cuentaOrig] -= cantidad; // descuenta la cantidad Transferida
+
+			System.out.printf("%10.2f de %d para %d", cantidad, cuentaOrig, cuentaDest);
+
+			cuentas[cuentaDest] += cantidad;
+
+			System.out.printf(" Saldo Total: %10.2f%n", getSaldo());
+
+			saldoSufi.signalAll();
+
+		} finally {
+
+			closeBank.unlock();
+		}
+
+	}
+
+	public double getSaldo() { // Saldo Total
+
+		double suma_cuentas = 0;
+
+		for (double a : cuentas) {
+
+			suma_cuentas += a;
+		}
+
+		return suma_cuentas;
+	}
+
+}
+
+class StartTransfer implements Runnable {
+
+	private Banco banco;
+
+	private int CuentaOrig;
+
+	private double Cantidadmax;
+
+	public StartTransfer(Banco b, int de, double max) {
+
+		banco = b;
+		CuentaOrig = de;
+		Cantidadmax = max;
+
+	}
+
+	@Override
+	public void run() {
+		// TODO Auto-generated method stub
+		try {
+			while (true) {
+
+				int CuentaDest = (int) (100 * Math.random());
+
+				double cantidad = Cantidadmax * Math.random();
+
+				banco.tranferencia(CuentaOrig, CuentaDest, cantidad);
+
+				Thread.sleep((int) (Math.random() * 100));
+
+			}
+		} catch (InterruptedException e) {
+
+			System.out.println("Error " + e);
+
+		}
+	}
+}
